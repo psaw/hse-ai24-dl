@@ -11,3 +11,5 @@
 - [PyTorch optim](https://pytorch.org/docs/stable/optim.html)
 - [LBFGS](https://pytorch.org/docs/stable/generated/torch.optim.LBFGS.html)
 
+
+Отдельная благодарность [Дмитрию](https://github.com/KuBaN658) за оформление конспекта 1 лекции более понятным почерком (Lec1_pretty).
