@@ -1,0 +1,13 @@
+{
+    "workbench.colorCustomizations": {
+        "titleBar.activeBackground": "#037549",
+        "titleBar.inactiveBackground": "#03391a"
+    },
+    "python-envs.pythonProjects": [
+        {
+            "path": "homeworks/HW1",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ]
+}

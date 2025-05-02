@@ -27,8 +27,10 @@ class Linear(Module):
         :param input: array of shape (batch_size, in_features)
         :return: array of shape (batch_size, out_features)
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        return super().compute_output(input)
+        output = np.dot(input, self.weight.T)
+        if self.bias is not None:
+            output += self.bias
+        return output
 
     def compute_grad_input(self, input: np.ndarray, grad_output: np.ndarray) -> np.ndarray:
         """
@@ -36,16 +38,18 @@ class Linear(Module):
         :param grad_output: array of shape (batch_size, out_features)
         :return: array of shape (batch_size, in_features)
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        return super().compute_grad_input(input, grad_output)
+        # bcs: dl/dx = dl/df * df/dx = dl/df * W
+        return np.dot(grad_output, self.weight)
 
     def update_grad_parameters(self, input: np.ndarray, grad_output: np.ndarray):
         """
         :param input: array of shape (batch_size, in_features)
         :param grad_output: array of shape (batch_size, out_features)
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        super().update_grad_parameters(input, grad_output)
+        # bcs: dl/dw = (dl/df)^T * x
+        self.grad_weight += np.dot(grad_output.T, input)
+        if self.bias is not None:
+            self.grad_bias += np.sum(grad_output, axis=0)
 
     def zero_grad(self):
         self.grad_weight.fill(0)
@@ -67,7 +71,7 @@ class Linear(Module):
     def __repr__(self) -> str:
         out_features, in_features = self.weight.shape
         return f'Linear(in_features={in_features}, out_features={out_features}, ' \
-               f'bias={not self.bias is None})'
+               f'bias={self.bias is not None})'
 
 
 class BatchNormalization(Module):
@@ -108,8 +112,36 @@ class BatchNormalization(Module):
         :param input: array of shape (batch_size, num_features)
         :return: array of shape (batch_size, num_features)
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        return super().compute_output(input)
+        if self.training:
+            # 1. Вычисляем среднее по батчу
+            self.mean = np.mean(input, axis=0)  # shape: (num_features,)
+            
+            # 2. Центрируем данные
+            self.input_mean = input - self.mean  # shape: (batch_size, num_features)
+            
+            # 3. Вычисляем дисперсию
+            self.var = np.mean(self.input_mean ** 2, axis=0)  # shape: (num_features,)
+            
+            # 4. Нормируем вход с учетом статистик
+            self.sqrt_var = np.sqrt(self.var + self.eps)  # shape: (num_features,)
+            self.inv_sqrt_var = 1.0 / self.sqrt_var  # shape: (num_features,)
+            self.norm_input = self.input_mean * self.inv_sqrt_var  # shape: (batch_size, num_features)
+            
+            # 5. Обновляем бегущие статистики
+            self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * self.mean
+            self.running_var = (1 - self.momentum) * self.running_var + self.momentum * self.var * (input.shape[0] / (input.shape[0] - 1))
+        else:
+            # В режиме eval используем бегущие статистики
+            self.input_mean = input - self.running_mean
+            self.inv_sqrt_var = 1.0 / np.sqrt(self.running_var + self.eps)
+            self.norm_input = self.input_mean * self.inv_sqrt_var
+        
+        # 6. Применяем аффинное преобразование если нужно
+        output = self.norm_input
+        if self.affine:
+            output = output * self.weight + self.bias
+        
+        return output
 
     def compute_grad_input(self, input: np.ndarray, grad_output: np.ndarray) -> np.ndarray:
         """
@@ -117,16 +149,30 @@ class BatchNormalization(Module):
         :param grad_output: array of shape (batch_size, num_features)
         :return: array of shape (batch_size, num_features)
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        return super().compute_grad_input(input, grad_output)
+        # Если есть аффинное преобразование, умножаем градиент на веса
+        if self.affine:
+            grad_output = grad_output * self.weight
+        
+        if self.training:
+            grad_norm = grad_output * self.inv_sqrt_var
+            grad_mean = np.mean(grad_norm, axis=0)
+            grad_std = np.mean(grad_norm * self.norm_input, axis=0)
+            
+            # Финальная формула
+            grad_input = grad_norm - grad_mean - self.norm_input * grad_std
+        else:
+            grad_input = grad_output * self.inv_sqrt_var
+        
+        return grad_input
 
     def update_grad_parameters(self, input: np.ndarray, grad_output: np.ndarray):
         """
         :param input: array of shape (batch_size, num_features)
         :param grad_output: array of shape (batch_size, num_features)
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        super().update_grad_parameters(input, grad_output)
+        if self.affine:
+            self.grad_weight += np.sum(grad_output * self.norm_input, axis=0)
+            self.grad_bias += np.sum(grad_output, axis=0)
 
     def zero_grad(self):
         if self.affine:
@@ -159,8 +205,14 @@ class Dropout(Module):
         :param input: array of an arbitrary size
         :return: array of the same size
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        return super().compute_output(input)
+        if self.training:
+            # Генерируем маску с вероятностью (1-p)
+            self.mask = (np.random.random(input.shape) > self.p).astype(float)
+            # Нормируем на (1-p) чтобы сохранить среднее значение
+            return input * self.mask / (1 - self.p)
+        else:
+            # В режиме eval просто пропускаем вход
+            return input
 
     def compute_grad_input(self, input: np.ndarray, grad_output: np.ndarray) -> np.ndarray:
         """
@@ -168,8 +220,12 @@ class Dropout(Module):
         :param grad_output: array of the same size
         :return: array of the same size
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        return super().compute_grad_input(input, grad_output)
+        if self.training:
+            # В режиме train умножаем градиент на маску и нормируем
+            return grad_output * self.mask / (1 - self.p)
+        else:
+            # В режиме eval просто пропускаем градиент
+            return grad_output
 
     def __repr__(self) -> str:
         return f'Dropout(p={self.p})'
@@ -182,14 +238,24 @@ class Sequential(Module):
     def __init__(self, *args):
         super().__init__()
         self.modules = list(args)
+        # Список для хранения промежуточных входов
+        self.forward_cache = []  
 
     def compute_output(self, input: np.ndarray) -> np.ndarray:
         """
         :param input: array of size matching the input size of the first layer
         :return: array of size matching the output size of the last layer
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        return super().compute_output(input)
+        # Очищаем кэш перед новым проходом
+        self.forward_cache = []
+        
+        # Применяем все модули последовательно
+        current_output = input  # вход модели
+        for module in self.modules:
+            self.forward_cache.append(current_output)
+            current_output = module(current_output)
+            
+        return current_output
 
     def compute_grad_input(self, input: np.ndarray, grad_output: np.ndarray) -> np.ndarray:
         """
@@ -197,8 +263,15 @@ class Sequential(Module):
         :param grad_output: array of size matching the output size of the last layer
         :return: array of size matching the input size of the first layer
         """
-        # replace with your code ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-        return super().compute_grad_input(input, grad_output)
+        # Проходим по модулям в обратном порядке
+        current_grad = grad_output
+        for module, module_input in zip(reversed(self.modules), reversed(self.forward_cache)):
+            # Обновляем градиенты параметров
+            module.update_grad_parameters(module_input, current_grad)
+            # Вычисляем градиент по входу
+            current_grad = module.compute_grad_input(module_input, current_grad)
+            
+        return current_grad
 
     def __getitem__(self, item):
         return self.modules[item]
