@@ -3,6 +3,7 @@ import torch
 from typing import Union, List, Tuple
 from sentencepiece import SentencePieceTrainer, SentencePieceProcessor
 from torch.utils.data import Dataset
+import numpy as np
 
 
 class TextDataset(Dataset):
@@ -40,9 +41,16 @@ class TextDataset(Dataset):
         Split texts to train and validation fixing self.TRAIN_VAL_RANDOM_SEED
         The validation ratio is self.VAL_RATIO
         """
-        train_texts, val_texts = None, None
+        np.random.seed(self.TRAIN_VAL_RANDOM_SEED)
+        texts = [t.rstrip('\n') for t in texts]
+        np.random.shuffle(texts)
+        split = int(len(texts) * (1 - self.VAL_RATIO))
+        train_texts = texts[:split]
+        val_texts = texts[split:]
         self.texts = train_texts if train else val_texts
-        self.indices = self.sp_model.encode(self.texts)
+        # TODO: проверить откуда это и как оно работает
+        # Индексы без BOS/EOS, добавим их в __getitem__
+        self.indices = [self.sp_model.encode(t) for t in self.texts]
 
         self.pad_id, self.unk_id, self.bos_id, self.eos_id = \
             self.sp_model.pad_id(), self.sp_model.unk_id(), \
@@ -84,8 +92,8 @@ class TextDataset(Dataset):
         :return: encoded text indices and its actual length (including BOS and EOS specials)
         """
         # These are placeholders, you may remove them.
-        indices = torch.randint(high=self.vocab_size, size=(self.max_length, ))
-        length = torch.randint(low=1, high=self.max_length + 1, size=()).item()
+        # indices = torch.randint(high=self.vocab_size, size=(self.max_length, ))
+        # length = torch.randint(low=1, high=self.max_length + 1, size=()).item()
         """
         YOUR CODE HERE (⊃｡•́‿•̀｡)⊃━✿✿✿✿✿✿
         Take corresponding index array from self.indices,
@@ -93,4 +101,18 @@ class TextDataset(Dataset):
         pad to self.max_length using self.pad_id.
         Return padded indices of size (max_length, ) and its actual length
         """
+        ids = self.indices[item]
+        ids = [self.bos_id] + ids + [self.eos_id]
+        # Обрезаем, если слишком длинно (но EOS должен быть обязательно)
+        if len(ids) > self.max_length:
+            ids = ids[:self.max_length-1] + [self.eos_id]
+        # Паддинг
+        if len(ids) < self.max_length:
+            ids = ids + [self.pad_id] * (self.max_length - len(ids))
+        indices = torch.LongTensor(ids)
+        # Длина — количество непаддинговых токенов
+        if self.pad_id in ids:
+            length = ids.index(self.pad_id)
+        else:
+            length = self.max_length
         return indices, length
