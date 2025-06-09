@@ -48,7 +48,6 @@ class TextDataset(Dataset):
         train_texts = texts[:split]
         val_texts = texts[split:]
         self.texts = train_texts if train else val_texts
-        # TODO: проверить откуда это и как оно работает
         # Индексы без BOS/EOS, добавим их в __getitem__
         self.indices = [self.sp_model.encode(t) for t in self.texts]
 
