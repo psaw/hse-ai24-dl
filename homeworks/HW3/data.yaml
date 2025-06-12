@@ -1,0 +1,5 @@
+train: ../hw3/data/train/images
+val: ../hw3/data/valid/images
+
+nc: 6
+names: ['king', 'jack', 'ace', 'ten', 'nine', 'queen']
