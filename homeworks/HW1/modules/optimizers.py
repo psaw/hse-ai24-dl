@@ -27,14 +27,15 @@ class SGD(Optimizer):
             self.state['m'] = [np.zeros_like(param) for param in parameters]
 
         for param, grad, m in zip(parameters, gradients, self.state['m']):
-            """
-            your code here ｀、ヽ｀、ヽ(ノ＞＜)ノ ヽ｀☂｀、ヽ
-              - update momentum variable (m)
-              - update parameter variable (param)
-            hint: consider using np.add(..., out=m) for in place addition,
-              i.e. we need to change original array, not its copy
-            """
-            pass
+            # Добавляем L2 регуляризацию к градиенту
+            if self.weight_decay != 0:
+                grad = grad + self.weight_decay * param
+            
+            # Обновляем момент: m = momentum * m + grad
+            np.add(self.momentum * m, grad, out=m)
+            
+            # Обновляем параметры: param = param - lr * m
+            param -= self.lr * m
 
 
 class Adam(Optimizer):
@@ -77,4 +78,19 @@ class Adam(Optimizer):
             hint: consider using np.add(..., out=m) for in place addition,
               i.e. we need to change original array, not its copy
             """
-            pass
+            # Добавляем L2 регуляризацию к градиенту
+            if self.weight_decay != 0:
+                grad = grad + self.weight_decay * param
+            
+            # Обновляем моменты первого порядка: m = beta1 * m + (1 - beta1) * grad
+            np.add(self.beta1 * m, (1 - self.beta1) * grad, out=m)
+            
+            # Обновляем моменты второго порядка: v = beta2 * v + (1 - beta2) * grad^2
+            np.add(self.beta2 * v, (1 - self.beta2) * grad * grad, out=v)
+            
+            # Вычисляем bias correction
+            m_hat = m / (1 - self.beta1 ** t)
+            v_hat = v / (1 - self.beta2 ** t)
+            
+            # Обновляем параметры: param = param - lr * m_hat / (sqrt(v_hat) + eps)
+            param -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
