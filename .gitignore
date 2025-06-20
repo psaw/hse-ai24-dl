@@ -178,3 +178,5 @@ cython_debug/
 # Wandb
 wandb/
 stepik/dogcat/*
+.data/
+.vector_cache/
