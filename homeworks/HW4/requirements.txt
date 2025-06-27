@@ -1,0 +1,13 @@
+ipykernel==6.29.5
+ipython==9.2.0
+matplotlib==3.10.3
+numpy==2.2.6
+pandas==2.2.3
+scipy==1.15.3
+scikit-learn==1.5.1
+seaborn==0.13.2
+sentencepiece==0.2.0
+torch==2.7.0
+tqdm
+ipywidgets
+transformers

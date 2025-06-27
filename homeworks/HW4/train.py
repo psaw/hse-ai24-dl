@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from IPython.display import clear_output
 from tqdm.notebook import tqdm
 from model import LanguageModel
+import numpy as np
 
 
 sns.set_style('whitegrid')
@@ -29,7 +30,8 @@ def plot_losses(train_losses: List[float], val_losses: List[float]):
     YOUR CODE HERE (⊃｡•́‿•̀｡)⊃━✿✿✿✿✿✿
     Calculate train and validation perplexities given lists of losses
     """
-    train_perplexities, val_perplexities = [], []
+    train_perplexities = [np.exp(loss) for loss in train_losses]
+    val_perplexities = [np.exp(loss) for loss in val_losses]
 
     axs[1].plot(range(1, len(train_perplexities) + 1), train_perplexities, label='train')
     axs[1].plot(range(1, len(val_perplexities) + 1), val_perplexities, label='val')
@@ -64,6 +66,17 @@ def training_epoch(model: LanguageModel, optimizer: torch.optim.Optimizer, crite
         call backward and make one optimizer step.
         Accumulate sum of losses for different batches in train_loss
         """
+        indices = indices.to(device)
+        lengths = lengths.to(device)
+        max_len = lengths.max().item()
+        inputs = indices[:, :max_len-1]
+        targets = indices[:, 1:max_len]
+        logits = model(inputs, lengths - 1)
+        loss = criterion(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        train_loss += loss.item() * indices.size(0)
 
     train_loss /= len(loader.dataset)
     return train_loss
@@ -90,6 +103,14 @@ def validation_epoch(model: LanguageModel, criterion: nn.Module,
         Process one validation step: calculate loss.
         Accumulate sum of losses for different batches in val_loss
         """
+        indices = indices.to(device)
+        lengths = lengths.to(device)
+        max_len = lengths.max().item()
+        inputs = indices[:, :max_len-1]
+        targets = indices[:, 1:max_len]
+        logits = model(inputs, lengths - 1)
+        loss = criterion(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
+        val_loss += loss.item() * indices.size(0)
 
     val_loss /= len(loader.dataset)
     return val_loss
