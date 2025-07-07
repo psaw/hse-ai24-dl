@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../iad-deep-learning"
+		}
+	],
+	"settings": {
+		"workbench.colorCustomizations": {
+			"titleBar.activeBackground": "#037549",
+			"titleBar.inactiveBackground": "#03391a"
+		}
+	}
+}
